@@ -1,0 +1,36 @@
+name: wakeup_ai
+description: AI-powered alarm app that requires exercise completion to stop.
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  camera: ^0.11.0+2
+  cloud_firestore: ^5.4.4
+  cupertino_icons: ^1.0.8
+  firebase_auth: ^5.3.1
+  firebase_core: ^3.6.0
+  flutter_local_notifications: ^17.2.3
+  google_mlkit_pose_detection: ^0.10.0
+  google_mlkit_commons: ^0.6.1
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  intl: ^0.19.0
+  path_provider: ^2.1.4
+  permission_handler: ^11.3.1
+  timezone: ^0.9.4
+  uuid: ^4.5.1
+  audioplayers: ^5.2.1
+  file_picker: ^8.0.0+1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
