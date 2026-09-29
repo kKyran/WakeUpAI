@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import '../../models/exercise_task.dart';
 import '../../models/wake_alarm.dart';
 import '../../services/audio_service.dart';
@@ -22,6 +21,7 @@ class _AlarmSetupPanelState extends State<AlarmSetupPanel> {
   late ExerciseKind _kind;
   late int _targetCount;
   String? _selectedAudio;
+  bool _enabled = true;
   final AudioService _audioService = AudioService();
 
   @override
@@ -30,11 +30,12 @@ class _AlarmSetupPanelState extends State<AlarmSetupPanel> {
     final alarm = widget.controller.currentAlarm;
     _time = TimeOfDay(
       hour: alarm?.time.hour ?? 7,
-      minute: alarm?.time.minute ?? 0,
+      minute: alarm?.time.minute ?? 30,
     );
     _kind = alarm?.task.kind ?? ExerciseKind.pushUps;
     _targetCount = alarm?.task.targetCount ?? 15;
     _selectedAudio = alarm?.audioPath;
+    _enabled = alarm?.enabled ?? true;
   }
 
   @override
@@ -47,104 +48,157 @@ class _AlarmSetupPanelState extends State<AlarmSetupPanel> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Icon(Icons.tune_rounded, color: scheme.primary),
-                const SizedBox(width: 10),
-                Text(
-                  'Будильник',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: _pickTime,
-              icon: const Icon(Icons.schedule_rounded),
-              label: Text(_time.format(context)),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<ExerciseKind>(
-              value: _kind,
-              decoration: const InputDecoration(
-                labelText: 'Тапсырма',
-                prefixIcon: Icon(Icons.fitness_center_rounded),
+    return Column(
+      children: [
+        // iOS стиліндегі үлкен уақыт
+        GestureDetector(
+          onTap: _pickTime,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 40),
+            child: Text(
+              _time.format(context),
+              style: const TextStyle(
+                fontSize: 90,
+                fontWeight: FontWeight.w200,
+                letterSpacing: -2,
               ),
-              items: ExerciseKind.values
-                  .map(
-                    (kind) => DropdownMenuItem<ExerciseKind>(
-                      value: kind,
-                      child: Text(kind.label),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() => _kind = value);
-                }
-              },
             ),
-            const SizedBox(height: 12),
-            _MusicSelectionTile(
-              selectedAudio: _selectedAudio,
-              audioService: _audioService,
-              onSelected: (path) => setState(() => _selectedAudio = path),
+          ),
+        ),
+        
+        // Минималистік баптаулар блогы
+        Container(
+          decoration: BoxDecoration(
+            color: scheme.surfaceVariant.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            children: [
+              _SettingRow(
+                icon: Icons.fitness_center_rounded,
+                title: 'Миссия',
+                value: _kind.label,
+                onTap: _showExercisePicker,
+              ),
+              const Divider(height: 1, indent: 56),
+              _SettingRow(
+                icon: Icons.repeat_rounded,
+                title: 'Қайталау',
+                value: '$_targetCount рет',
+                onTap: _showCountPicker,
+              ),
+              const Divider(height: 1, indent: 56),
+              _SettingRow(
+                icon: Icons.music_note_rounded,
+                title: 'Әуен',
+                value: _selectedAudio == null ? 'Әдепкі' : 'Таңдалды',
+                onTap: () => _showMusicPicker(context),
+              ),
+              const Divider(height: 1, indent: 56),
+              SwitchListTile.adaptive(
+                secondary: Icon(Icons.alarm_on_rounded, color: scheme.primary),
+                title: const Text('Қосулы'),
+                value: _enabled,
+                onChanged: (val) => setState(() => _enabled = val),
+              ),
+            ],
+          ),
+        ),
+        
+        const SizedBox(height: 40),
+        
+        // Сақтау батырмасы
+        SizedBox(
+          width: double.infinity,
+          height: 60,
+          child: FilledButton(
+            onPressed: _save,
+            style: FilledButton.styleFrom(
+              backgroundColor: scheme.primary,
+              foregroundColor: scheme.onPrimary,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              elevation: 0,
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Text(
-                    'Саны: $_targetCount',
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                ),
-                IconButton.outlined(
-                  tooltip: 'Азайту',
-                  onPressed: _targetCount <= 5
-                      ? null
-                      : () => setState(() => _targetCount -= 1),
-                  icon: const Icon(Icons.remove_rounded),
-                ),
-                const SizedBox(width: 8),
-                IconButton.filledTonal(
-                  tooltip: 'Көбейту',
-                  onPressed: () => setState(() => _targetCount += 1),
-                  icon: const Icon(Icons.add_rounded),
-                ),
-              ],
+            child: const Text('Сақтау', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextButton.icon(
+          onPressed: () {
+            _audioService.stop();
+            widget.controller.triggerRinging();
+          },
+          icon: const Icon(Icons.notifications_active_rounded),
+          label: const Text('Тесттік қоңырау'),
+        ),
+      ],
+    );
+  }
+
+  void _showExercisePicker() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: ExerciseKind.values.map((k) => ListTile(
+            title: Text(k.label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 18)),
+            onTap: () {
+              setState(() => _kind = k);
+              Navigator.pop(context);
+            },
+          )).toList(),
+        ),
+      ),
+    );
+  }
+
+  void _showCountPicker() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => SizedBox(
+        height: 300,
+        child: Column(
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(20),
+              child: Text('Санын таңдаңыз', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ),
-            const SizedBox(height: 16),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: _save,
-                    icon: const Icon(Icons.save_rounded),
-                    label: const Text('Сақтау'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton.outlined(
-                  tooltip: 'Сынау',
-                  onPressed: () {
-                    _audioService.stop();
-                    widget.controller.triggerRinging();
-                  },
-                  icon: const Icon(Icons.notifications_active_rounded),
-                ),
-              ],
+            Expanded(
+              child: ListView.builder(
+                itemCount: 50,
+                itemBuilder: (context, index) {
+                  final val = index + 5;
+                  return ListTile(
+                    title: Text('$val', textAlign: TextAlign.center),
+                    selected: _targetCount == val,
+                    onTap: () {
+                      setState(() => _targetCount = val);
+                      Navigator.pop(context);
+                    },
+                  );
+                },
+              ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showMusicPicker(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => _MusicPickerSheet(
+        audioService: _audioService,
+        currentSelection: _selectedAudio,
+        onSelected: (path) => setState(() => _selectedAudio = path),
       ),
     );
   }
@@ -153,6 +207,14 @@ class _AlarmSetupPanelState extends State<AlarmSetupPanel> {
     final picked = await showTimePicker(
       context: context,
       initialTime: _time,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            materialTapTargetSize: MaterialTapTargetSize.padded,
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null) {
       setState(() => _time = picked);
@@ -166,67 +228,40 @@ class _AlarmSetupPanelState extends State<AlarmSetupPanel> {
       task: ExerciseTask(kind: _kind, targetCount: _targetCount),
       audioPath: _selectedAudio,
     );
-
-    if (!mounted) {
-      return;
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Оятқыш сақталды'), behavior: SnackBarBehavior.floating),
+      );
     }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Будильник сақталды')),
-    );
   }
 }
 
-class _MusicSelectionTile extends StatelessWidget {
-  const _MusicSelectionTile({
-    required this.selectedAudio,
-    required this.audioService,
-    required this.onSelected,
+class _SettingRow extends StatelessWidget {
+  const _SettingRow({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.onTap,
   });
 
-  final String? selectedAudio;
-  final AudioService audioService;
-  final ValueChanged<String?> onSelected;
+  final IconData icon;
+  final String title;
+  final String value;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final label = selectedAudio == null
-        ? 'Музыка таңдалмаған'
-        : selectedAudio!.startsWith('assets/')
-            ? 'Музыка ${selectedAudio!.split('_').last.split('.').first}'
-            : selectedAudio!.split('/').last;
-
     return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: scheme.primaryContainer,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(Icons.music_note_rounded, color: scheme.onPrimaryContainer),
+      leading: Icon(icon, color: Theme.of(context).colorScheme.primary.withOpacity(0.7)),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(value, style: TextStyle(color: Theme.of(context).colorScheme.secondary)),
+          const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+        ],
       ),
-      title: const Text('Оятқыш әуені'),
-      subtitle: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-      trailing: IconButton.filledTonal(
-        icon: const Icon(Icons.chevron_right_rounded),
-        onPressed: () => _showMusicPicker(context),
-      ),
-      onTap: () => _showMusicPicker(context),
-    );
-  }
-
-  void _showMusicPicker(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (context) => _MusicPickerSheet(
-        audioService: audioService,
-        currentSelection: selectedAudio,
-        onSelected: onSelected,
-      ),
+      onTap: onTap,
     );
   }
 }
@@ -266,18 +301,14 @@ class _MusicPickerSheetState extends State<_MusicPickerSheet> {
         return Column(
           children: [
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               child: Row(
                 children: [
-                  Text(
-                    'Әуен таңдау',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                  ),
+                  const Text('Әуен таңдау', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const Spacer(),
-                  TextButton.icon(
+                  IconButton(
                     onPressed: _pickLocalFile,
                     icon: const Icon(Icons.folder_open_rounded),
-                    label: const Text('Файл'),
                   ),
                 ],
               ),
@@ -296,18 +327,14 @@ class _MusicPickerSheetState extends State<_MusicPickerSheet> {
                     leading: IconButton(
                       icon: Icon(isPlaying ? Icons.stop_circle_rounded : Icons.play_circle_filled_rounded),
                       color: isPlaying ? Colors.red : Colors.green,
-                      iconSize: 32,
-                      onPressed: () => _togglePlay(sound.url, true),
+                      onPressed: () => _togglePlay(sound.url),
                     ),
                     title: Text(sound.name),
-                    trailing: IconButton(
-                      icon: Icon(isSelected ? Icons.check_circle_rounded : Icons.add_circle_outline_rounded),
-                      color: isSelected ? Colors.blue : null,
-                      onPressed: () {
-                        widget.onSelected(sound.url);
-                        Navigator.pop(context);
-                      },
-                    ),
+                    trailing: isSelected ? const Icon(Icons.check_rounded, color: Colors.blue) : null,
+                    onTap: () {
+                      widget.onSelected(sound.url);
+                      Navigator.pop(context);
+                    },
                   );
                 },
               ),
@@ -318,12 +345,12 @@ class _MusicPickerSheetState extends State<_MusicPickerSheet> {
     );
   }
 
-  void _togglePlay(String url, bool isUrl) {
+  void _togglePlay(String url) {
     if (_playingUrl == url) {
       widget.audioService.stop();
       setState(() => _playingUrl = null);
     } else {
-      widget.audioService.play(url, isUrl: isUrl);
+      widget.audioService.play(url);
       setState(() => _playingUrl = url);
     }
   }

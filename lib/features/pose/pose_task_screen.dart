@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:camera/camera.dart';
@@ -31,7 +32,12 @@ class _PoseTaskScreenState extends State<PoseTaskScreen> {
 
   CustomPaint? _customPaint;
 
-  late ExerciseCounter _counter;
+  ExerciseCounter? _counter;
+  Timer? _manualTimer;
+  final _mathAnswerController = TextEditingController();
+  var _manualProgress = 0;
+  var _mathA = 8;
+  var _mathB = 7;
   var _feedback = 'Камера қосылуда...';
   var _isBusy = false;
   var _completing = false;
@@ -39,21 +45,33 @@ class _PoseTaskScreenState extends State<PoseTaskScreen> {
   @override
   void initState() {
     super.initState();
-    _counter = _createCounter();
-    _poseDetector = PoseDetector(
-      options: PoseDetectorOptions(
-        mode: PoseDetectionMode.stream,
-      ),
-    );
-    _cameraFuture = _initializeCamera();
+    if (widget.task.kind.usesPose) {
+      _counter = _createCounter();
+      _poseDetector = PoseDetector(
+        options: PoseDetectorOptions(
+          mode: PoseDetectionMode.stream,
+        ),
+      );
+      _cameraFuture = _initializeCamera();
+    } else {
+      _feedback = widget.task.kind.instruction;
+      _manualProgress = widget.task.kind == ExerciseKind.plank
+          ? widget.task.targetCount
+          : 0;
+    }
   }
 
   ExerciseCounter _createCounter() {
     switch (widget.task.kind) {
       case ExerciseKind.squats:
         return SquatCounter(target: widget.task.targetCount);
-      case ExerciseKind.pushUps:
       case ExerciseKind.jumpingJacks:
+        return JumpingJackCounter(target: widget.task.targetCount);
+      case ExerciseKind.pushUps:
+      case ExerciseKind.plank:
+      case ExerciseKind.water:
+      case ExerciseKind.mathPuzzle:
+      case ExerciseKind.qrScan:
         return PushUpCounter(target: widget.task.targetCount);
     }
   }
@@ -63,12 +81,18 @@ class _PoseTaskScreenState extends State<PoseTaskScreen> {
     _camera?.stopImageStream();
     _camera?.dispose();
     _poseDetector?.close();
+    _manualTimer?.cancel();
+    _mathAnswerController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+
+    if (!widget.task.kind.usesPose) {
+      return _buildManualChallenge(context);
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -121,7 +145,7 @@ class _PoseTaskScreenState extends State<PoseTaskScreen> {
               child: Column(
                 children: <Widget>[
                   Text(
-                    '${_counter.count}/${widget.task.targetCount}',
+                    '${_counter?.count ?? 0}/${widget.task.targetCount}',
                     style: Theme.of(context).textTheme.displayLarge?.copyWith(
                           fontWeight: FontWeight.w900,
                           color: scheme.primary,
@@ -131,7 +155,7 @@ class _PoseTaskScreenState extends State<PoseTaskScreen> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(10),
                     child: LinearProgressIndicator(
-                      value: (_counter.count / widget.task.targetCount)
+                      value: ((_counter?.count ?? 0) / widget.task.targetCount)
                           .clamp(0.0, 1.0)
                           .toDouble(),
                       minHeight: 12,
@@ -222,7 +246,7 @@ class _PoseTaskScreenState extends State<PoseTaskScreen> {
           } else {
             final pose = poses.first;
             final frame = _poseFrameFromMLKit(pose);
-            final update = _counter.processFrame(frame);
+            final update = _counter!.processFrame(frame);
             _feedback = update.feedback;
             widget.controller.updateTaskProgress(update.count);
 
@@ -238,6 +262,195 @@ class _PoseTaskScreenState extends State<PoseTaskScreen> {
     } finally {
       _isBusy = false;
     }
+  }
+
+  Widget _buildManualChallenge(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final kind = widget.task.kind;
+    final progress = kind == ExerciseKind.plank
+        ? widget.task.targetCount - _manualProgress
+        : _manualProgress;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(kind.label),
+        automaticallyImplyLeading: false,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        children: <Widget>[
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: <Widget>[
+                  Icon(_manualIcon(kind), size: 64, color: scheme.primary),
+                  const SizedBox(height: 14),
+                  Text(
+                    kind.label,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    kind.instruction,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: scheme.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 24),
+                  if (kind == ExerciseKind.plank) ...<Widget>[
+                    Text(
+                      '$_manualProgress сек',
+                      style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                            fontWeight: FontWeight.w900,
+                            color: scheme.primary,
+                          ),
+                    ),
+                    const SizedBox(height: 12),
+                    LinearProgressIndicator(
+                      value: (progress / widget.task.targetCount)
+                          .clamp(0.0, 1.0)
+                          .toDouble(),
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: _manualTimer == null ? _startPlank : null,
+                      icon: const Icon(Icons.play_arrow_rounded),
+                      label: const Text('Планканы бастау'),
+                    ),
+                  ] else if (kind == ExerciseKind.mathPuzzle) ...<Widget>[
+                    Text(
+                      '$_mathA + $_mathB = ?',
+                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _mathAnswerController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Жауап',
+                        prefixIcon: Icon(Icons.calculate_rounded),
+                      ),
+                      onSubmitted: (_) => _checkMath(),
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: _checkMath,
+                      icon: const Icon(Icons.check_rounded),
+                      label: Text('Тексеру ($_manualProgress/${widget.task.targetCount})'),
+                    ),
+                  ] else if (kind == ExerciseKind.qrScan) ...<Widget>[
+                    FilledButton.icon(
+                      onPressed: _completeManual,
+                      icon: const Icon(Icons.qr_code_scanner_rounded),
+                      label: const Text('QR сканерленді'),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'MVP: нақты QR scanner келесі native кезеңде қосылады.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: scheme.onSurfaceVariant),
+                    ),
+                  ] else ...<Widget>[
+                    FilledButton.icon(
+                      onPressed: _completeManual,
+                      icon: const Icon(Icons.local_drink_rounded),
+                      label: const Text('Орындадым'),
+                    ),
+                  ],
+                  if (widget.controller.currentAlarm?.emergencyModeEnabled ??
+                      true) ...<Widget>[
+                    const SizedBox(height: 18),
+                    OutlinedButton.icon(
+                      onPressed: () => _completeManual(emergencyUsed: true),
+                      icon: const Icon(Icons.emergency_rounded),
+                      label: const Text('Emergency backup'),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  Text(
+                    _feedback,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: scheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _manualIcon(ExerciseKind kind) {
+    return switch (kind) {
+      ExerciseKind.plank => Icons.timer_rounded,
+      ExerciseKind.water => Icons.local_drink_rounded,
+      ExerciseKind.mathPuzzle => Icons.calculate_rounded,
+      ExerciseKind.qrScan => Icons.qr_code_scanner_rounded,
+      ExerciseKind.pushUps => Icons.fitness_center_rounded,
+      ExerciseKind.squats => Icons.fitness_center_rounded,
+      ExerciseKind.jumpingJacks => Icons.fitness_center_rounded,
+    };
+  }
+
+  void _startPlank() {
+    if (_manualTimer != null) {
+      return;
+    }
+
+    _manualTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() {
+        _manualProgress -= 1;
+        _feedback = 'Тыныс ал, денені түзу ұста';
+      });
+      if (_manualProgress <= 0) {
+        timer.cancel();
+        _completeManual();
+      }
+    });
+  }
+
+  void _checkMath() {
+    final answer = int.tryParse(_mathAnswerController.text.trim());
+    if (answer != _mathA + _mathB) {
+      setState(() => _feedback = 'Қате жауап, қайта көр');
+      return;
+    }
+
+    _mathAnswerController.clear();
+    setState(() {
+      _manualProgress += 1;
+      _mathA += 3;
+      _mathB += 4;
+      _feedback = 'Дұрыс, тағы бір есеп';
+    });
+
+    if (_manualProgress >= widget.task.targetCount) {
+      _completeManual();
+    }
+  }
+
+  Future<void> _completeManual({bool emergencyUsed = false}) async {
+    if (_completing) {
+      return;
+    }
+    _completing = true;
+    _manualTimer?.cancel();
+    final completed = widget.task.kind == ExerciseKind.plank
+        ? widget.task.targetCount
+        : widget.task.targetCount;
+    await widget.controller.completeTask(
+      completed,
+      emergencyUsed: emergencyUsed,
+    );
   }
 
   PoseFrame _poseFrameFromMLKit(Pose pose) {

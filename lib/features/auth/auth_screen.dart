@@ -112,13 +112,28 @@ class _AuthScreenState extends State<AuthScreen> {
                         },
                       ),
                       const SizedBox(height: 22),
-                      _AuthField(
-                        controller: _emailController,
-                        hintText: 'Email',
-                        keyboardType: TextInputType.emailAddress,
-                        autofillHints: const <String>[AutofillHints.email],
-                        prefixIcon: Icons.alternate_email_rounded,
-                        palette: palette,
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
+                            decoration: BoxDecoration(
+                              color: palette.field,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: palette.border),
+                            ),
+                            child: const Text('🇰🇿 +7', style: TextStyle(fontSize: 16)),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _AuthField(
+                              controller: _emailController,
+                              hintText: 'Номер',
+                              keyboardType: TextInputType.phone,
+                              prefixIcon: Icons.phone_android_rounded,
+                              palette: palette,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 12),
                       _AuthField(

@@ -7,15 +7,19 @@ import 'services/alarm_repository.dart';
 import 'services/alarm_scheduler.dart';
 import 'services/wake_flow_controller.dart';
 
+import 'package:flutter_localizations/flutter_localizations.dart';
+
 class WakeUpApp extends StatefulWidget {
   const WakeUpApp({
     required this.repository,
     required this.scheduler,
+    this.locale,
     super.key,
   });
 
   final AlarmRepository repository;
   final AlarmScheduler scheduler;
+  final Locale? locale;
 
   @override
   State<WakeUpApp> createState() => _WakeUpAppState();
@@ -48,6 +52,19 @@ class _WakeUpAppState extends State<WakeUpApp> {
       theme: WakeUpTheme.light(),
       darkTheme: WakeUpTheme.dark(),
       themeMode: _themeMode,
+      locale: widget.locale,
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('kk'),
+        Locale('ru'),
+        Locale('en'),
+        Locale('tr'),
+        Locale('ar'),
+      ],
       home: AnimatedBuilder(
         animation: controller,
         builder: (context, _) {

@@ -6,6 +6,11 @@ class WakeSessionResult {
     required this.completedAt,
     required this.repsCompleted,
     required this.targetReps,
+    this.exerciseKindCode = 'push_ups',
+    this.difficultyCode = 'normal',
+    this.emergencyUsed = false,
+    this.summaryTitle,
+    this.achievementCodes = const <String>[],
   });
 
   final String id;
@@ -14,6 +19,11 @@ class WakeSessionResult {
   final DateTime completedAt;
   final int repsCompleted;
   final int targetReps;
+  final String exerciseKindCode;
+  final String difficultyCode;
+  final bool emergencyUsed;
+  final String? summaryTitle;
+  final List<String> achievementCodes;
 
   int get durationSeconds {
     return completedAt.difference(startedAt).inSeconds.clamp(0, 86400).toInt();
@@ -33,6 +43,11 @@ class WakeSessionResult {
       'completedAt': completedAt.toIso8601String(),
       'repsCompleted': repsCompleted,
       'targetReps': targetReps,
+      'exerciseKindCode': exerciseKindCode,
+      'difficultyCode': difficultyCode,
+      'emergencyUsed': emergencyUsed,
+      'summaryTitle': summaryTitle,
+      'achievementCodes': achievementCodes,
     };
   }
 
@@ -46,6 +61,14 @@ class WakeSessionResult {
           DateTime.now(),
       repsCompleted: json['repsCompleted'] as int? ?? 0,
       targetReps: json['targetReps'] as int? ?? 0,
+      exerciseKindCode: json['exerciseKindCode'] as String? ?? 'push_ups',
+      difficultyCode: json['difficultyCode'] as String? ?? 'normal',
+      emergencyUsed: json['emergencyUsed'] as bool? ?? false,
+      summaryTitle: json['summaryTitle'] as String?,
+      achievementCodes:
+          (json['achievementCodes'] as List<dynamic>? ?? <dynamic>[])
+              .map((item) => item.toString())
+              .toList(),
     );
   }
 }

@@ -60,6 +60,13 @@ class WakeAlarm {
     required this.task,
     required this.enabled,
     required this.updatedAt,
+    this.difficulty = AlarmDifficulty.normal,
+    this.soundMood = AlarmSoundMood.calm,
+    this.emergencyModeEnabled = true,
+    this.sleepHour = 22,
+    this.sleepMinute = 30,
+    this.windDownMinutes = 30,
+    this.challengeName,
     this.audioPath,
   });
 
@@ -69,7 +76,20 @@ class WakeAlarm {
   final ExerciseTask task;
   final bool enabled;
   final DateTime updatedAt;
+  final AlarmDifficulty difficulty;
+  final AlarmSoundMood soundMood;
+  final bool emergencyModeEnabled;
+  final int sleepHour;
+  final int sleepMinute;
+  final int windDownMinutes;
+  final String? challengeName;
   final String? audioPath;
+
+  String get sleepLabel {
+    final paddedHour = sleepHour.toString().padLeft(2, '0');
+    final paddedMinute = sleepMinute.toString().padLeft(2, '0');
+    return '$paddedHour:$paddedMinute';
+  }
 
   WakeAlarm copyWith({
     String? id,
@@ -78,6 +98,13 @@ class WakeAlarm {
     ExerciseTask? task,
     bool? enabled,
     DateTime? updatedAt,
+    AlarmDifficulty? difficulty,
+    AlarmSoundMood? soundMood,
+    bool? emergencyModeEnabled,
+    int? sleepHour,
+    int? sleepMinute,
+    int? windDownMinutes,
+    String? challengeName,
     String? audioPath,
   }) {
     return WakeAlarm(
@@ -87,6 +114,14 @@ class WakeAlarm {
       task: task ?? this.task,
       enabled: enabled ?? this.enabled,
       updatedAt: updatedAt ?? this.updatedAt,
+      difficulty: difficulty ?? this.difficulty,
+      soundMood: soundMood ?? this.soundMood,
+      emergencyModeEnabled:
+          emergencyModeEnabled ?? this.emergencyModeEnabled,
+      sleepHour: sleepHour ?? this.sleepHour,
+      sleepMinute: sleepMinute ?? this.sleepMinute,
+      windDownMinutes: windDownMinutes ?? this.windDownMinutes,
+      challengeName: challengeName ?? this.challengeName,
       audioPath: audioPath ?? this.audioPath,
     );
   }
@@ -99,6 +134,13 @@ class WakeAlarm {
       'task': task.toJson(),
       'enabled': enabled,
       'updatedAt': updatedAt.toIso8601String(),
+      'difficulty': difficulty.code,
+      'soundMood': soundMood.code,
+      'emergencyModeEnabled': emergencyModeEnabled,
+      'sleepHour': sleepHour,
+      'sleepMinute': sleepMinute,
+      'windDownMinutes': windDownMinutes,
+      'challengeName': challengeName,
       'audioPath': audioPath,
     };
   }
@@ -116,6 +158,13 @@ class WakeAlarm {
       enabled: json['enabled'] as bool? ?? true,
       updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? '') ??
           DateTime.now(),
+      difficulty: AlarmDifficulty.fromCode(json['difficulty'] as String? ?? ''),
+      soundMood: AlarmSoundMood.fromCode(json['soundMood'] as String? ?? ''),
+      emergencyModeEnabled: json['emergencyModeEnabled'] as bool? ?? true,
+      sleepHour: json['sleepHour'] as int? ?? 22,
+      sleepMinute: json['sleepMinute'] as int? ?? 30,
+      windDownMinutes: json['windDownMinutes'] as int? ?? 30,
+      challengeName: json['challengeName'] as String?,
       audioPath: json['audioPath'] as String?,
     );
   }

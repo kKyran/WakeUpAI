@@ -8,6 +8,7 @@ import '../models/session_result.dart';
 import '../models/wake_alarm.dart';
 import 'alarm_repository.dart';
 import 'alarm_scheduler.dart';
+import 'morning_coach_service.dart';
 
 class WakeFlowController extends ChangeNotifier {
   WakeFlowController({
@@ -90,6 +91,13 @@ class WakeFlowController extends ChangeNotifier {
     required AlarmClockTime time,
     required ExerciseTask task,
     String? audioPath,
+    AlarmDifficulty difficulty = AlarmDifficulty.normal,
+    AlarmSoundMood soundMood = AlarmSoundMood.calm,
+    bool emergencyModeEnabled = true,
+    int sleepHour = 22,
+    int sleepMinute = 30,
+    int windDownMinutes = 30,
+    String? challengeName,
   }) async {
     final alarm = WakeAlarm(
       id: currentAlarm?.id ?? _uuid.v4(),
@@ -98,6 +106,13 @@ class WakeFlowController extends ChangeNotifier {
       task: task,
       enabled: true,
       updatedAt: DateTime.now(),
+      difficulty: difficulty,
+      soundMood: soundMood,
+      emergencyModeEnabled: emergencyModeEnabled,
+      sleepHour: sleepHour,
+      sleepMinute: sleepMinute,
+      windDownMinutes: windDownMinutes,
+      challengeName: challengeName,
       audioPath: audioPath,
     );
 
@@ -153,19 +168,41 @@ class WakeFlowController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> completeTask(int repsCompleted) async {
+  Future<void> completeTask(
+    int repsCompleted, {
+    bool emergencyUsed = false,
+  }) async {
     final alarm = currentAlarm;
     if (alarm == null) {
       return;
     }
 
-    final result = WakeSessionResult(
+    final draftResult = WakeSessionResult(
       id: _uuid.v4(),
       alarmId: alarm.id,
       startedAt: taskStartedAt ?? DateTime.now(),
       completedAt: DateTime.now(),
       repsCompleted: repsCompleted,
       targetReps: alarm.task.targetCount,
+      exerciseKindCode: alarm.task.kind.code,
+      difficultyCode: alarm.difficulty.code,
+      emergencyUsed: emergencyUsed,
+    );
+    final projectedResults = <WakeSessionResult>[draftResult, ...results];
+    final result = WakeSessionResult(
+      id: draftResult.id,
+      alarmId: draftResult.alarmId,
+      startedAt: draftResult.startedAt,
+      completedAt: draftResult.completedAt,
+      repsCompleted: draftResult.repsCompleted,
+      targetReps: draftResult.targetReps,
+      exerciseKindCode: draftResult.exerciseKindCode,
+      difficultyCode: draftResult.difficultyCode,
+      emergencyUsed: draftResult.emergencyUsed,
+      summaryTitle: MorningCoachService.morningSummaryTitle(draftResult),
+      achievementCodes: MorningCoachService.achievementCodesForResults(
+        projectedResults,
+      ),
     );
 
     await repository.addResult(result);

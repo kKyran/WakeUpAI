@@ -7,6 +7,9 @@ class UserProfile {
     required this.weight,
     required this.gender,
     required this.level,
+    this.photoPath,
+    this.phoneNumber,
+    this.countryCode,
   });
 
   final String id;
@@ -15,7 +18,10 @@ class UserProfile {
   final double height;
   final double weight;
   final String gender;
-  final int level; // 1-ден 5-ке дейін (қаншалықты дайындығы бар)
+  final int level;
+  final String? photoPath;
+  final String? phoneNumber;
+  final String? countryCode;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -25,6 +31,9 @@ class UserProfile {
         'weight': weight,
         'gender': gender,
         'level': level,
+        'photoPath': photoPath,
+        'phoneNumber': phoneNumber,
+        'countryCode': countryCode,
       };
 
   factory UserProfile.fromJson(Map<String, dynamic> json) => UserProfile(
@@ -35,5 +44,8 @@ class UserProfile {
         weight: (json['weight'] as num).toDouble(),
         gender: json['gender'] as String,
         level: json['level'] as int,
+        photoPath: json['photoPath'] as String?,
+        phoneNumber: json['phoneNumber'] as String?,
+        countryCode: json['countryCode'] as String?,
       );
 }
